@@ -647,9 +647,11 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
                         	        }
                                 } else if(abs(distGoal) < firstBreak && abs(distGoal) > secondBreak) {
                                         rewardHistory = (buffer + distGoal) * REWARD_LOSS * 2.0f;
+                                } else if(abs(distGoal) < secondBreak && abs(distGoal) > 0.0f) {
+                                        rewardHistory = (buffer + distGoal) * REWARD_LOSS * 1.0f;
 				}
 
-				printf("distGoal: %f, avgGoalDelta: %f, rewardHistory: %f\n", distGoal, avgGoalDelta, rewardHistory);
+				//printf("distGoal: %f, avgGoalDelta: %f, rewardHistory: %f\n", distGoal, avgGoalDelta, rewardHistory);
 				newReward = true;
 			}
 
