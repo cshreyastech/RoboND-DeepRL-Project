@@ -37,9 +37,9 @@
 
 #define INPUT_WIDTH   64
 #define INPUT_HEIGHT  64
-#define OPTIMIZER "Adam"
+#define OPTIMIZER "RMSprop"
 #define LEARNING_RATE 0.01f
-#define REPLAY_MEMORY 20000
+#define REPLAY_MEMORY 10000
 #define BATCH_SIZE 512
 #define USE_LSTM true
 #define LSTM_SIZE 256
@@ -61,6 +61,7 @@
 #define COLLISION_FILTER "ground_plane::link::collision"
 #define COLLISION_ITEM   "tube::tube_link::tube_collision"
 #define COLLISION_POINT  "arm::gripperbase::gripper_link"
+#define COLLISION_ARM    "arm::link2::collision2"
 
 // Animation Steps
 #define ANIMATION_STEPS 1000
@@ -248,13 +249,16 @@ void ArmPlugin::onCameraMsg(ConstImageStampedPtr &_msg)
 // onCollisionMsg
 void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 {
-	//if(DEBUG){printf("collision callback (%u contacts)\n", contacts->contact_size());}
+	if(DEBUG){printf("collision callback (%u contacts)\n", contacts->contact_size());}
 
 	if( testAnimation )
 		return;
 
 	for (unsigned int i = 0; i < contacts->contact_size(); ++i)
 	{
+		//printf("contacts collision1: %s\n: ", contacts->contact(i).collision1().c_str());
+		//printf("contacts collision2: %s\n: ", contacts->contact(i).collision2().c_str());
+
 		if( strcmp(contacts->contact(i).collision2().c_str(), COLLISION_FILTER) == 0 )
 			continue;
 
@@ -266,30 +270,30 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 		/ TODO - Check if there is collision between the arm and object, then issue learning reward
 		/
 		*/
-		
-		bool collisionCheck = false;
+		bool armCollisionCheck = (strcmp(contacts->contact(i).collision2().c_str(), COLLISION_ARM) == 0);
+		bool gripperCollisionCheck = (contacts->contact(i).collision2().find("arm::gripper") != std::string::npos);
+
+		if(1){std::cout << "Collision between[" << contacts->contact(i).collision1()
+			     << "] and [" << contacts->contact(i).collision2() << "]\n";}
+
 		//Collision between arm and object
-		if (strcmp(contacts->contact(i).collision1().c_str(), COLLISION_ITEM) == 0)
+		if (armCollisionCheck)
 		{
-			collisionCheck = true;
-			rewardHistory = REWARD_WIN * 15.0f;
+			//printf("arm collision with target");
+			rewardHistory = REWARD_WIN * 1500.0f;
 		}
 		
-		if (collisionCheck)
+		else if (gripperCollisionCheck)
 		{
-			//is gripper the ollision point?
-			if (strcmp(contacts->contact(i).collision2().c_str(), COLLISION_POINT) == 0)
-			{
-				rewardHistory = REWARD_WIN * 25.0f;
-			}
+			//printf("gripper collision with target");
+			rewardHistory = REWARD_WIN * 5000.0f;
 
-			newReward  = true;
-			endEpisode = true;
-
-			return;
 		}
-		
-		
+
+		newReward  = true;
+		endEpisode = true;
+
+		return;
 	}
 }
 
@@ -562,8 +566,8 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 	// episode timeout
 	if( maxEpisodeLength > 0 && episodeFrames > maxEpisodeLength )
 	{
-		printf("ArmPlugin - triggering EOE, episode has exceeded %i frames\n", maxEpisodeLength);
-		rewardHistory = REWARD_LOSS * 50.0f;
+		//printf("ArmPlugin - triggering EOE, episode has exceeded %i frames\n", maxEpisodeLength);
+		rewardHistory = REWARD_LOSS * 550.0f;
 		newReward     = true;
 		endEpisode    = true;
 	}
@@ -607,6 +611,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 						
 			if(DEBUG){printf("GROUND CONTACT, EOE\n");}
 
+			printf("GROUND CONTACT, EOE\n");
 			rewardHistory = REWARD_LOSS * 15.0f;
 			newReward     = true;
 			endEpisode    = true;
@@ -629,29 +634,19 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 			if( episodeFrames > 1 )
 			{
 				const float distDelta  = lastGoalDistance - distGoal;
-				const float alpha = 0.9f;
-				const float firstBreak = 0.4f;
-				const float secondBreak = 0.1f;
-				const float buffer = 1.0f;
+				const float alpha = 0.4f;
+
+				const float multiplier = 2.5f;
 
 				// compute the smoothed moving average of the delta of the distance to the goal
 				avgGoalDelta  = (avgGoalDelta * alpha) + (distDelta * (1.0f - alpha));
 
-                                if(abs(distGoal) >= firstBreak) {
-                                        rewardHistory = (buffer + distGoal) * REWARD_LOSS * 5.0f;
+				const float distDeltaReward = exp(distDelta) * multiplier * REWARD_LOSS;
+				const float avgGoalDeltaReward = avgGoalDelta;
 
-                                	if(avgGoalDelta < 0) {
-	                                        rewardHistory += REWARD_LOSS * 4.0f;
-        	                        } else if(avgGoalDelta >= 0) {
-                	                        rewardHistory += REWARD_LOSS * 0.7f; 
-                        	        }
-                                } else if(abs(distGoal) < firstBreak && abs(distGoal) > secondBreak) {
-                                        rewardHistory = (buffer + distGoal) * REWARD_LOSS * 2.0f;
-                                } else if(abs(distGoal) < secondBreak && abs(distGoal) > 0.0f) {
-                                        rewardHistory = (buffer + distGoal) * REWARD_LOSS * 1.0f;
-				}
+				rewardHistory = distDeltaReward + avgGoalDeltaReward;
 
-				//printf("distGoal: %f, avgGoalDelta: %f, rewardHistory: %f\n", distGoal, avgGoalDelta, rewardHistory);
+				//printf("distGoal: %f, avgGoalDelta: %f, rewardHistory: %f, distDeltaReward %f, avgGoalDeltaReward: %f\n", distGoal, avgGoalDelta, rewardHistory, distDeltaReward, avgGoalDeltaReward);
 				newReward = true;
 			}
 
