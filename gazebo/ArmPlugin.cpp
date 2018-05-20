@@ -9,6 +9,7 @@
 
 #include "cudaMappedMemory.h"
 #include "cudaPlanar.h"
+#include "math.h"
 
 #define PI 3.141592653589793238462643383279502884197169f
 
@@ -567,7 +568,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 	if( maxEpisodeLength > 0 && episodeFrames > maxEpisodeLength )
 	{
 		//printf("ArmPlugin - triggering EOE, episode has exceeded %i frames\n", maxEpisodeLength);
-		rewardHistory = REWARD_LOSS * 550.0f;
+		rewardHistory = REWARD_LOSS * 1000.0f;
 		newReward     = true;
 		endEpisode    = true;
 	}
@@ -612,7 +613,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 			if(DEBUG){printf("GROUND CONTACT, EOE\n");}
 
 			printf("GROUND CONTACT, EOE\n");
-			rewardHistory = REWARD_LOSS * 15.0f;
+			rewardHistory = REWARD_LOSS * lastGoalDistance * 600.0f;
 			newReward     = true;
 			endEpisode    = true;
 		}
@@ -636,17 +637,18 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 				const float distDelta  = lastGoalDistance - distGoal;
 				const float alpha = 0.4f;
 
-				const float multiplier = 2.5f;
+				const float distDeltaMultiplier = 1.0f;
 
 				// compute the smoothed moving average of the delta of the distance to the goal
 				avgGoalDelta  = (avgGoalDelta * alpha) + (distDelta * (1.0f - alpha));
+				const float avgGoalDeltaMultiplier = (exp(-1.0f * avgGoalDelta) / 2.0f) * 100.0f;
 
-				const float distDeltaReward = exp(distDelta) * multiplier * REWARD_LOSS;
-				const float avgGoalDeltaReward = avgGoalDelta;
+				const float distDeltaReward = 10.0f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
+				const float avgGoalDeltaReward = 40.0f + avgGoalDeltaMultiplier * REWARD_LOSS;
 
-				rewardHistory = distDeltaReward + avgGoalDeltaReward;
-
-				//printf("distGoal: %f, avgGoalDelta: %f, rewardHistory: %f, distDeltaReward %f, avgGoalDeltaReward: %f\n", distGoal, avgGoalDelta, rewardHistory, distDeltaReward, avgGoalDeltaReward);
+				//printf("rewardHistory: %f\n", rewardHistory);
+				rewardHistory = (distDeltaReward + avgGoalDeltaReward);
+				printf("distGoal: %f, lastGoalDistance: %f, distDelta: %f, avgGoalDelta: %f, rewardHistory: %f, distDeltaReward %f, avgGoalDeltaReward: %f\n", distGoal, lastGoalDistance, distDelta, avgGoalDelta, rewardHistory, distDeltaReward, avgGoalDeltaReward);
 				newReward = true;
 			}
 
@@ -684,6 +686,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 			for( uint32_t n=0; n < DOF; n++ )
 				vel[n] = 0.0f;
 		}
+		rewardHistory = 0.0f;
 	}
 }
 
