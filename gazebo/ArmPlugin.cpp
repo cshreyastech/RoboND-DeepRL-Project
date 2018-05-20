@@ -641,10 +641,10 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 
 				// compute the smoothed moving average of the delta of the distance to the goal
 				avgGoalDelta  = (avgGoalDelta * alpha) + (distDelta * (1.0f - alpha));
-				const float avgGoalDeltaMultiplier = (exp(-1.0f * avgGoalDelta) / 2.0f) * 100.0f;
+				const float avgGoalDeltaMultiplier = (exp(-1.0f * avgGoalDelta) / 2.0f) * 90.0f;
 
-				const float distDeltaReward = 10.0f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
-				const float avgGoalDeltaReward = 40.0f + avgGoalDeltaMultiplier * REWARD_LOSS;
+				const float distDeltaReward = 5.0f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
+				const float avgGoalDeltaReward = 35.0f + avgGoalDeltaMultiplier * REWARD_LOSS;
 
 				//printf("rewardHistory: %f\n", rewardHistory);
 				rewardHistory = (distDeltaReward + avgGoalDeltaReward);
