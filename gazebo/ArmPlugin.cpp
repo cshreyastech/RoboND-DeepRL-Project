@@ -18,8 +18,8 @@
 
 // Turn on velocity based control
 #define VELOCITY_CONTROL true
-#define VELOCITY_MIN -0.2f
-#define VELOCITY_MAX  0.2f
+#define VELOCITY_MIN -0.1f //-0.2f
+#define VELOCITY_MAX  0.1f //0.2f
 
 // Define DQN API Settings
 
@@ -79,7 +79,7 @@ namespace gazebo
  
 // register this plugin with the simulator
 GZ_REGISTER_MODEL_PLUGIN(ArmPlugin)
-
+float distGoal = 0.0f;
 
 // constructor
 ArmPlugin::ArmPlugin() : ModelPlugin(), cameraNode(new gazebo::transport::Node()), collisionNode(new gazebo::transport::Node())
@@ -274,23 +274,23 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 		bool armCollisionCheck = (strcmp(contacts->contact(i).collision2().c_str(), COLLISION_ARM) == 0);
 		bool gripperCollisionCheck = (contacts->contact(i).collision2().find("arm::gripper") != std::string::npos);
 
-		if(1){std::cout << "Collision between[" << contacts->contact(i).collision1()
-			     << "] and [" << contacts->contact(i).collision2() << "]\n";}
+		std::cout << "Collision between[" << contacts->contact(i).collision1()
+			     << "] and [" << contacts->contact(i).collision2() << "]\n";
 
-		//Collision between arm and object
-		if (armCollisionCheck)
-		{
-			//printf("arm collision with target");
-			rewardHistory = REWARD_WIN * 1500.0f;
-		}
-		
-		else if (gripperCollisionCheck)
+		if (gripperCollisionCheck)
 		{
 			//printf("gripper collision with target");
 			rewardHistory = REWARD_WIN * 5000.0f;
-
 		}
 
+		//printf("distGoal: %f\n", distGoal);
+		//Collision between arm and object
+		else if (armCollisionCheck)
+		{
+			//printf("arm collision with target");
+			rewardHistory = REWARD_WIN * (1.0f - distGoal) * 0.1f;
+		}
+		
 		newReward  = true;
 		endEpisode = true;
 
@@ -379,7 +379,7 @@ bool ArmPlugin::updateAgent()
 	// each arm has two directions to move as this is 2D
 	float direction = (action % 2 == 0) ? 1.0f : -1.0f;
 
-	float joint = ref[action / 2] + actionJoinDelta * direction; // TODO - Set joint position based on whether action is even or odd.
+	float joint = ref[action / 2] + actionJointDelta * direction; // TODO - Set joint position based on whether action is even or odd.
 
 	// limit the joint to the specified range
 	if( joint < JOINT_MIN )
@@ -603,7 +603,8 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 		/
 		*/
 
-		const float distGoal = BoxDistance(gripBBox, propBBox); //distance to the goal
+		//const float distGoal = BoxDistance(gripBBox, propBBox); //distance to the goal
+		distGoal = BoxDistance(gripBBox, propBBox); //distance to the goal
 
 		bool checkGroundContact = (gripBBox.min.z <= groundContact || gripBBox.max.z <= groundContact);
 
@@ -648,7 +649,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 
 				//printf("rewardHistory: %f\n", rewardHistory);
 				rewardHistory = (distDeltaReward + avgGoalDeltaReward);
-				printf("distGoal: %f, lastGoalDistance: %f, distDelta: %f, avgGoalDelta: %f, rewardHistory: %f, distDeltaReward %f, avgGoalDeltaReward: %f\n", distGoal, lastGoalDistance, distDelta, avgGoalDelta, rewardHistory, distDeltaReward, avgGoalDeltaReward);
+				//printf("distGoal: %f, lastGoalDistance: %f, distDelta: %f, avgGoalDelta: %f, rewardHistory: %f, distDeltaReward %f, avgGoalDeltaReward: %f\n", distGoal, lastGoalDistance, distDelta, avgGoalDelta, rewardHistory, distDeltaReward, avgGoalDeltaReward);
 				newReward = true;
 			}
 
