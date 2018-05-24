@@ -81,6 +81,11 @@ namespace gazebo
 GZ_REGISTER_MODEL_PLUGIN(ArmPlugin)
 float distGoal = 0.0f;
 
+int nfloorCollision = 0;
+int nGripperTargetCollision = 0;
+int nArmTargetCollision = 0;
+int nNoCollision = 0;
+
 // constructor
 ArmPlugin::ArmPlugin() : ModelPlugin(), cameraNode(new gazebo::transport::Node()), collisionNode(new gazebo::transport::Node())
 {
@@ -277,10 +282,12 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 		std::cout << "Collision between[" << contacts->contact(i).collision1()
 			     << "] and [" << contacts->contact(i).collision2() << "]\n";
 
-		printf("distGoal: %f\n", distGoal);
+		//printf("distGoal: %f\n", distGoal);
 		if (gripperCollisionCheck || distGoal == 0.0f)
 		{
 			//printf("gripper collision with target");
+			nGripperTargetCollision++;
+
 			rewardHistory = REWARD_WIN * 5000.0f;
 
 			newReward  = true;
@@ -291,7 +298,9 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 		{
 			//printf("arm collision with target");
 			//rewardHistory = REWARD_WIN * (1.0f - distGoal) * 0.1f;
-			rewardHistory = REWARD_LOSS * distGoal * 0.5;
+			nArmTargetCollision++;
+
+			rewardHistory = REWARD_LOSS * distGoal * 0.7f;
 		}
 		
 		newReward  = true;
@@ -571,6 +580,8 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 	if( maxEpisodeLength > 0 && episodeFrames > maxEpisodeLength )
 	{
 		//printf("ArmPlugin - triggering EOE, episode has exceeded %i frames\n", maxEpisodeLength);
+		nNoCollision++;
+
 		rewardHistory = REWARD_LOSS * 1000.0f;
 		newReward     = true;
 		endEpisode    = true;
@@ -616,6 +627,8 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 						
 			if(DEBUG){printf("GROUND CONTACT, EOE\n");}
 
+			nfloorCollision++;
+
 			printf("GROUND CONTACT, EOE\n");
 			rewardHistory = REWARD_LOSS * lastGoalDistance * 600.0f;
 			newReward     = true;
@@ -649,12 +662,16 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 
 				//const float distDeltaReward = 5.0f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
 				// 4.3 - 22%
-				const float distDeltaReward = 4.2f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
+				const float distDeltaReward = 2.6f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
 				const float avgGoalDeltaReward = 35.0f + avgGoalDeltaMultiplier * REWARD_LOSS;
 
 				//printf("rewardHistory: %f\n", rewardHistory);
-				rewardHistory = (distDeltaReward + 0.6 * avgGoalDeltaReward);
-				printf("distGoal: %f, lastGoalDistance: %f, distDelta: %f, avgGoalDelta: %f, rewardHistory: %f, distDeltaReward %f, avgGoalDeltaReward: %f\n", distGoal, lastGoalDistance, distDelta, avgGoalDelta, rewardHistory, distDeltaReward, avgGoalDeltaReward);
+				//rewardHistory = (distDeltaReward + 0.6f * avgGoalDeltaReward); //50%
+
+				float influenceFactor = (distGoal > 0.3 ? 0.5f : 0.7f);
+				rewardHistory = (influenceFactor * distDeltaReward + (1.0f - influenceFactor) * avgGoalDeltaReward);
+
+				printf("inf: %0.1f, distGoal: %f, lastGoalDistance: %f, distDelta: %f, avgGoalDelta: %f, rewardHistory: %f, distDeltaReward %f, avgGoalDeltaReward: %f\n", influenceFactor, distGoal, lastGoalDistance, distDelta, avgGoalDelta, rewardHistory, distDeltaReward, avgGoalDeltaReward);
 				newReward = true;
 			}
 
@@ -688,6 +705,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 			totalRuns++;
 			printf("Current Accuracy:  %0.4f (%03u of %03u)  (reward=%+0.2f %s)\n", float(successfulGrabs)/float(totalRuns), successfulGrabs, totalRuns, rewardHistory, (rewardHistory >= REWARD_WIN ? "WIN" : "LOSS"));
 
+			printf("Toral: %f, gripperColl: %0.4f, armColl: %0.4f, floorColl: %0.4f, noColl: %04f\n", float((successfulGrabs + nArmTargetCollision + nfloorCollision + nNoCollision) / totalRuns), float(successfulGrabs)/float(totalRuns), float(nArmTargetCollision)/float(totalRuns), float(nfloorCollision)/float(totalRuns), float(nNoCollision)/float(totalRuns));
 
 			for( uint32_t n=0; n < DOF; n++ )
 				vel[n] = 0.0f;
