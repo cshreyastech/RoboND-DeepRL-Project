@@ -28,7 +28,7 @@
 #define DEBUG_DQN false
 #define GAMMA 0.9f
 #define EPS_START 0.9f
-#define EPS_END 0.05f
+#define EPS_END 0.01f
 #define EPS_DECAY 200
 
 /*
@@ -38,12 +38,12 @@
 
 #define INPUT_WIDTH   64
 #define INPUT_HEIGHT  64
-#define OPTIMIZER "RMSprop"
+#define OPTIMIZER "Adam"
 #define LEARNING_RATE 0.01f
 #define REPLAY_MEMORY 10000
-#define BATCH_SIZE 512
+#define BATCH_SIZE 128
 #define USE_LSTM true
-#define LSTM_SIZE 256
+#define LSTM_SIZE 512
 
 /*
 / TODO - Define Reward Parameters
@@ -277,18 +277,21 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 		std::cout << "Collision between[" << contacts->contact(i).collision1()
 			     << "] and [" << contacts->contact(i).collision2() << "]\n";
 
-		if (gripperCollisionCheck)
+		printf("distGoal: %f\n", distGoal);
+		if (gripperCollisionCheck || distGoal == 0.0f)
 		{
 			//printf("gripper collision with target");
 			rewardHistory = REWARD_WIN * 5000.0f;
-		}
 
-		//printf("distGoal: %f\n", distGoal);
-		//Collision between arm and object
+			newReward  = true;
+			endEpisode = true;
+			return;
+		}
 		else if (armCollisionCheck)
 		{
 			//printf("arm collision with target");
-			rewardHistory = REWARD_WIN * (1.0f - distGoal) * 0.1f;
+			//rewardHistory = REWARD_WIN * (1.0f - distGoal) * 0.1f;
+			rewardHistory = REWARD_LOSS * distGoal * 0.5;
 		}
 		
 		newReward  = true;
@@ -644,12 +647,14 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 				avgGoalDelta  = (avgGoalDelta * alpha) + (distDelta * (1.0f - alpha));
 				const float avgGoalDeltaMultiplier = (exp(-1.0f * avgGoalDelta) / 2.0f) * 90.0f;
 
-				const float distDeltaReward = 5.0f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
+				//const float distDeltaReward = 5.0f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
+				// 4.3 - 22%
+				const float distDeltaReward = 4.2f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
 				const float avgGoalDeltaReward = 35.0f + avgGoalDeltaMultiplier * REWARD_LOSS;
 
 				//printf("rewardHistory: %f\n", rewardHistory);
-				rewardHistory = (distDeltaReward + avgGoalDeltaReward);
-				//printf("distGoal: %f, lastGoalDistance: %f, distDelta: %f, avgGoalDelta: %f, rewardHistory: %f, distDeltaReward %f, avgGoalDeltaReward: %f\n", distGoal, lastGoalDistance, distDelta, avgGoalDelta, rewardHistory, distDeltaReward, avgGoalDeltaReward);
+				rewardHistory = (distDeltaReward + 0.6 * avgGoalDeltaReward);
+				printf("distGoal: %f, lastGoalDistance: %f, distDelta: %f, avgGoalDelta: %f, rewardHistory: %f, distDeltaReward %f, avgGoalDeltaReward: %f\n", distGoal, lastGoalDistance, distDelta, avgGoalDelta, rewardHistory, distDeltaReward, avgGoalDeltaReward);
 				newReward = true;
 			}
 
