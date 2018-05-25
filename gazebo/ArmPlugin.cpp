@@ -18,8 +18,8 @@
 
 // Turn on velocity based control
 #define VELOCITY_CONTROL true
-#define VELOCITY_MIN -0.1f //-0.2f
-#define VELOCITY_MAX  0.1f //0.2f
+#define VELOCITY_MIN -0.08f //-0.2f
+#define VELOCITY_MAX  0.08f //0.2f
 
 // Define DQN API Settings
 
@@ -29,7 +29,7 @@
 #define GAMMA 0.9f
 #define EPS_START 0.9f
 #define EPS_END 0.01f
-#define EPS_DECAY 200
+#define EPS_DECAY 300
 
 /*
 / TODO - Tune the following hyperparameters
@@ -288,7 +288,7 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 			//printf("gripper collision with target");
 			nGripperTargetCollision++;
 
-			rewardHistory = REWARD_WIN * 5000.0f;
+			rewardHistory = REWARD_WIN * (5000.0f + (1.0f - float(episodeFrames) / float(maxEpisodeLength)) * 100.f);
 
 			newReward  = true;
 			endEpisode = true;
@@ -300,7 +300,8 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 			//rewardHistory = REWARD_WIN * (1.0f - distGoal) * 0.1f;
 			nArmTargetCollision++;
 
-			rewardHistory = REWARD_LOSS * distGoal * 0.7f;
+			//rewardHistory = REWARD_LOSS * distGoal * 5000.0f; //0.5f - 25%
+			rewardHistory = REWARD_LOSS * lastGoalDistance * 4000.0f;
 		}
 		
 		newReward  = true;
@@ -630,7 +631,8 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 			nfloorCollision++;
 
 			printf("GROUND CONTACT, EOE\n");
-			rewardHistory = REWARD_LOSS * lastGoalDistance * 600.0f;
+			//rewardHistory = REWARD_LOSS * lastGoalDistance * 600.0f;
+			rewardHistory = REWARD_LOSS * distGoal * 600.0f;
 			newReward     = true;
 			endEpisode    = true;
 		}
@@ -662,14 +664,21 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 
 				//const float distDeltaReward = 5.0f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
 				// 4.3 - 22%
-				const float distDeltaReward = 2.6f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
+				//2.6 -35%
+				const float distDeltaReward = 1.0f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
 				const float avgGoalDeltaReward = 35.0f + avgGoalDeltaMultiplier * REWARD_LOSS;
 
 				//printf("rewardHistory: %f\n", rewardHistory);
 				//rewardHistory = (distDeltaReward + 0.6f * avgGoalDeltaReward); //50%
 
-				float influenceFactor = (distGoal > 0.3 ? 0.5f : 0.7f);
-				rewardHistory = (influenceFactor * distDeltaReward + (1.0f - influenceFactor) * avgGoalDeltaReward);
+
+				float influenceFactor =-0.1f;
+				if(distGoal > 0.4f) {
+					rewardHistory = distDeltaReward + avgGoalDeltaReward;
+				} else {
+					influenceFactor = 0.4f;
+					rewardHistory = (influenceFactor * distDeltaReward + (1.0f - influenceFactor) * avgGoalDeltaReward);
+				}
 
 				printf("inf: %0.1f, distGoal: %f, lastGoalDistance: %f, distDelta: %f, avgGoalDelta: %f, rewardHistory: %f, distDeltaReward %f, avgGoalDeltaReward: %f\n", influenceFactor, distGoal, lastGoalDistance, distDelta, avgGoalDelta, rewardHistory, distDeltaReward, avgGoalDeltaReward);
 				newReward = true;
