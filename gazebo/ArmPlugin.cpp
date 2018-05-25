@@ -301,7 +301,7 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 			nArmTargetCollision++;
 
 			//rewardHistory = REWARD_LOSS * distGoal * 5000.0f; //0.5f - 25%
-			rewardHistory = REWARD_LOSS * lastGoalDistance * 4000.0f;
+			rewardHistory = REWARD_LOSS * lastGoalDistance * 60.0f;
 		}
 		
 		newReward  = true;
