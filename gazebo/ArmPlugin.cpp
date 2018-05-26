@@ -29,7 +29,7 @@
 #define GAMMA 0.9f
 #define EPS_START 0.9f
 #define EPS_END 0.01f
-#define EPS_DECAY 300
+#define EPS_DECAY 200
 
 /*
 / TODO - Tune the following hyperparameters
@@ -288,7 +288,7 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 			//printf("gripper collision with target");
 			nGripperTargetCollision++;
 
-			rewardHistory = REWARD_WIN * (5000.0f + (1.0f - float(episodeFrames) / float(maxEpisodeLength)) * 100.f);
+			rewardHistory = REWARD_WIN + (0.0f + (1.0f - float(episodeFrames) / float(maxEpisodeLength)) * 100.0f);
 
 			newReward  = true;
 			endEpisode = true;
@@ -301,7 +301,8 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 			nArmTargetCollision++;
 
 			//rewardHistory = REWARD_LOSS * distGoal * 5000.0f; //0.5f - 25%
-			rewardHistory = REWARD_LOSS * lastGoalDistance * 60.0f;
+			//rewardHistory = REWARD_LOSS * lastGoalDistance * 30.0f;
+			rewardHistory = REWARD_LOSS + avgGoalDelta;
 		}
 		
 		newReward  = true;
@@ -580,7 +581,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 	// episode timeout
 	if( maxEpisodeLength > 0 && episodeFrames > maxEpisodeLength )
 	{
-		//printf("ArmPlugin - triggering EOE, episode has exceeded %i frames\n", maxEpisodeLength);
+		printf("ArmPlugin - triggering EOE, episode has exceeded %i frames\n", maxEpisodeLength);
 		nNoCollision++;
 
 		rewardHistory = REWARD_LOSS * 1000.0f;
@@ -656,7 +657,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 				const float distDelta  = lastGoalDistance - distGoal;
 				const float alpha = 0.4f;
 
-				const float distDeltaMultiplier = 1.0f;
+				const float distDeltaMultiplier = 0.6f; //1.0f;
 
 				// compute the smoothed moving average of the delta of the distance to the goal
 				avgGoalDelta  = (avgGoalDelta * alpha) + (distDelta * (1.0f - alpha));
@@ -665,8 +666,8 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 				//const float distDeltaReward = 5.0f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
 				// 4.3 - 22%
 				//2.6 -35%
-				const float distDeltaReward = 1.0f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
-				const float avgGoalDeltaReward = 35.0f + avgGoalDeltaMultiplier * REWARD_LOSS;
+				const float distDeltaReward = 2.6f + exp(1.0f + distGoal) * distDeltaMultiplier * REWARD_LOSS;
+				const float avgGoalDeltaReward = 40.0f + avgGoalDeltaMultiplier * REWARD_LOSS;
 
 				//printf("rewardHistory: %f\n", rewardHistory);
 				//rewardHistory = (distDeltaReward + 0.6f * avgGoalDeltaReward); //50%
