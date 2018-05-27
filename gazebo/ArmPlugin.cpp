@@ -59,10 +59,10 @@
 #define GRIP_NAME  "gripper_middle"
 
 // Define Collision Parameters
-#define COLLISION_FILTER "ground_plane::link::collision"
-#define COLLISION_ITEM   "tube::tube_link::tube_collision"
-#define COLLISION_POINT  "arm::gripperbase::gripper_link"
-#define COLLISION_ARM    "arm::link2::collision2"
+#define COLLISION_FILTER 		"ground_plane::link::collision"
+#define COLLISION_ITEM   		"tube::tube_link::tube_collision"
+#define COLLISION_POINT  		"arm::gripperbase::gripper_link"
+#define COLLISION_ARM    		"arm::link2::collision2"
 
 // Animation Steps
 #define ANIMATION_STEPS 1000
@@ -82,7 +82,7 @@ GZ_REGISTER_MODEL_PLUGIN(ArmPlugin)
 float distGoal = 0.0f;
 
 int nfloorCollision = 0;
-int nGripperTargetCollision = 0;
+//int nGripperTargetCollision = 0;
 int nArmTargetCollision = 0;
 int nNoCollision = 0;
 
@@ -286,13 +286,13 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 		if (gripperCollisionCheck || distGoal == 0.0f)
 		{
 			//printf("gripper collision with target");
-			nGripperTargetCollision++;
+			//nGripperTargetCollision++;
 
-			rewardHistory = REWARD_WIN + (0.0f + (1.0f - float(episodeFrames) / float(maxEpisodeLength)) * 100.0f);
+			rewardHistory = REWARD_WIN * (0.0f + (1.0f - float(episodeFrames) / float(maxEpisodeLength)) * 1000.0f);
 
 			newReward  = true;
 			endEpisode = true;
-			return;
+			//return;
 		}
 		else if (armCollisionCheck)
 		{
@@ -302,13 +302,13 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 
 			//rewardHistory = REWARD_LOSS * distGoal * 5000.0f; //0.5f - 25%
 			//rewardHistory = REWARD_LOSS * lastGoalDistance * 30.0f;
-			rewardHistory = REWARD_LOSS + avgGoalDelta;
+			rewardHistory = REWARD_LOSS * 2.0f + avgGoalDelta;
+			newReward  = true;
+			endEpisode = true;
 		}
 		
-		newReward  = true;
-		endEpisode = true;
 
-		return;
+		//return;
 	}
 }
 
@@ -584,7 +584,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 		printf("ArmPlugin - triggering EOE, episode has exceeded %i frames\n", maxEpisodeLength);
 		nNoCollision++;
 
-		rewardHistory = REWARD_LOSS * 1000.0f;
+		rewardHistory = REWARD_LOSS * 10.0f;
 		newReward     = true;
 		endEpisode    = true;
 	}
@@ -655,6 +655,9 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 			if( episodeFrames > 1 )
 			{
 				const float distDelta  = lastGoalDistance - distGoal;
+
+
+				/*
 				const float alpha = 0.4f;
 
 				const float distDeltaMultiplier = 0.6f; //1.0f;
@@ -674,7 +677,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 
 
 				float influenceFactor =-0.1f;
-				if(distGoal > 0.4f) {
+				if(distGoal > -0.4f) {
 					rewardHistory = distDeltaReward + avgGoalDeltaReward;
 				} else {
 					influenceFactor = 0.4f;
@@ -682,6 +685,12 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 				}
 
 				printf("inf: %0.1f, distGoal: %f, lastGoalDistance: %f, distDelta: %f, avgGoalDelta: %f, rewardHistory: %f, distDeltaReward %f, avgGoalDeltaReward: %f\n", influenceFactor, distGoal, lastGoalDistance, distDelta, avgGoalDelta, rewardHistory, distDeltaReward, avgGoalDeltaReward);
+
+				*/
+
+				const float alpha = 0.2f;
+				avgGoalDelta  = (avgGoalDelta * alpha) + (distDelta * (1.0f - alpha));
+				rewardHistory = avgGoalDelta;
 				newReward = true;
 			}
 
@@ -716,6 +725,8 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 			printf("Current Accuracy:  %0.4f (%03u of %03u)  (reward=%+0.2f %s)\n", float(successfulGrabs)/float(totalRuns), successfulGrabs, totalRuns, rewardHistory, (rewardHistory >= REWARD_WIN ? "WIN" : "LOSS"));
 
 			printf("Toral: %f, gripperColl: %0.4f, armColl: %0.4f, floorColl: %0.4f, noColl: %04f\n", float((successfulGrabs + nArmTargetCollision + nfloorCollision + nNoCollision) / totalRuns), float(successfulGrabs)/float(totalRuns), float(nArmTargetCollision)/float(totalRuns), float(nfloorCollision)/float(totalRuns), float(nNoCollision)/float(totalRuns));
+			//printf("Toral: %d, gripperColl: %d, armColl: %d, floorColl: %d, noColl: %d\n", totalRuns, successfulGrabs, nArmTargetCollision, nfloorCollision, nNoCollision);
+			//printf("nGripperTargetCollision: %d\n\n", nGripperTargetCollision);
 
 			for( uint32_t n=0; n < DOF; n++ )
 				vel[n] = 0.0f;
