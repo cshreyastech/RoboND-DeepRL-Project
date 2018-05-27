@@ -79,7 +79,7 @@ namespace gazebo
  
 // register this plugin with the simulator
 GZ_REGISTER_MODEL_PLUGIN(ArmPlugin)
-float distGoal = 0.0f;
+float distGoal = -1.0f;
 
 int nfloorCollision = 0;
 //int nGripperTargetCollision = 0;
