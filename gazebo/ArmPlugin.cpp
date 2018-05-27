@@ -288,7 +288,7 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 			//printf("gripper collision with target");
 			//nGripperTargetCollision++;
 
-			rewardHistory = REWARD_WIN * (0.0f + (1.0f - float(episodeFrames) / float(maxEpisodeLength)) * 1000.0f);
+			rewardHistory = REWARD_WIN * (1.0f - float(episodeFrames) / float(maxEpisodeLength)) * 1000.0f;
 
 			newReward  = true;
 			endEpisode = true;
